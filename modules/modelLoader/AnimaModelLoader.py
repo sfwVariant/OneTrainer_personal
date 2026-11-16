@@ -35,6 +35,7 @@ class AnimaModelLoader(
             weight_dtypes: ModelWeightDtypes,
             base_model_name: str,
     ):
+        print("Loading Anima text encoder...")
         model.text_encoder = self._load_transformers_sub_module(
             Qwen3Model,
             weight_dtypes.text_encoder,
@@ -42,13 +43,22 @@ class AnimaModelLoader(
             base_model_name,
             "text_encoder",
         )
+        print("Anima text encoder loaded.")
 
-        # The conditioner is part of Anima's text-encoding path and must be reloaded with it.
+        self.__load_text_encoder_auxiliaries(model, base_model_name)
+
+    def __load_text_encoder_auxiliaries(
+            self,
+            model: AnimaModel,
+            base_model_name: str,
+    ):
+        print("Loading Anima text conditioner...")
         model.text_conditioner = AnimaTextConditioner.from_pretrained(
             base_model_name,
             subfolder="text_conditioner",
             torch_dtype=torch.bfloat16,
         )
+        print("Anima text conditioner loaded.")
 
     def load_text_encoders(
             self,
@@ -59,6 +69,16 @@ class AnimaModelLoader(
             quantization: QuantizationConfig,
     ):
         self.__load_text_encoders(model, weight_dtypes, model_names.base_model)
+
+    def load_text_encoder_auxiliaries(
+            self,
+            model: AnimaModel,
+            model_type: ModelType,
+            model_names: ModelNames,
+            weight_dtypes: ModelWeightDtypes,
+            quantization: QuantizationConfig,
+    ):
+        self.__load_text_encoder_auxiliaries(model, model_names.base_model)
 
     def __load_internal(
             self,
