@@ -233,20 +233,35 @@ class BaseTrainUIView(ABC):
         self.components.switch(frame, 16, 1, ui_state, "unload_text_encoder_after_caching")
 
     def build_data_tab_content(self, frame, controller, ui_state):
+        def update_scaling_option():
+            bucketing = ui_state.get_var("aspect_ratio_bucketing").get()
+            scale_to_mpx = ui_state.get_var("scale_to_mpx_equivalent")
+            if bucketing and not scale_to_mpx.get():
+                scale_to_mpx.set(True)
+            self.components.set_widget_enabled(scale_to_mpx_switch, not bucketing)
+
         # aspect ratio bucketing
         self.components.label(frame, 0, 0, "Aspect Ratio Bucketing",
                          tooltip="Aspect ratio bucketing enables training on images with different aspect ratios")
-        self.components.switch(frame, 0, 1, ui_state, "aspect_ratio_bucketing")
+        self.components.switch(frame, 0, 1, ui_state, "aspect_ratio_bucketing", command=update_scaling_option)
+
+        # scale to megapixel equivalent
+        self.components.label(frame, 1, 0, "Scale to MPX equivalent",
+                         tooltip="Preserve each image's approximate aspect ratio while scaling to the pixel count of the selected resolution. Images within 10% of the target pixel count keep their native size, with cropping for dimension restrictions. Always enabled with aspect ratio bucketing; disable both options for square crops.")
+        scale_to_mpx_switch = self.components.switch(
+            frame, 1, 1, ui_state, "scale_to_mpx_equivalent", command=update_scaling_option,
+        )
+        update_scaling_option()
 
         # latent caching
-        self.components.label(frame, 1, 0, "Latent Caching",
+        self.components.label(frame, 2, 0, "Latent Caching",
                          tooltip="Caching of intermediate training data that can be re-used between epochs")
-        self.components.switch(frame, 1, 1, ui_state, "latent_caching")
+        self.components.switch(frame, 2, 1, ui_state, "latent_caching")
 
         # clear cache before training
-        self.components.label(frame, 2, 0, "Clear cache before training",
+        self.components.label(frame, 3, 0, "Clear cache before training",
                          tooltip="Clears the cache directory before starting to train. Only disable this if you want to continue using the same cached data. Disabling this can lead to errors, if other settings are changed during a restart")
-        self.components.switch(frame, 2, 1, ui_state, "clear_cache_before_training")
+        self.components.switch(frame, 3, 1, ui_state, "clear_cache_before_training")
 
     def build_sampling_tab_header(self, top_frame, sub_frame, controller, ui_state):
         self.components.label(top_frame, 0, 0, "Sample After",

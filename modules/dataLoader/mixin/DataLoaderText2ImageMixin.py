@@ -4,6 +4,9 @@ from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
 
 import modules.util.multi_gpu_util as multi
+from modules.dataLoader.MpxAspectCalculation import MpxAspectCalculation
+from modules.dataLoader.ResolutionMetadata import ResolutionAwareMaskRemove, ResolutionMetadata
+from modules.dataLoader.TolerantAspectBucketing import TolerantAspectBucketing
 from modules.model.BaseModel import BaseModel
 from modules.modelSetup.BaseModelSetup import BaseModelSetup
 from modules.modelSetup.mixin.ModelSetupText2ImageMixin import ModelSetupText2ImageMixin
@@ -14,7 +17,6 @@ from modules.util.TrainProgress import TrainProgress
 
 from mgds.OutputPipelineModule import OutputPipelineModule
 from mgds.pipelineModules.AspectBatchSorting import AspectBatchSorting
-from mgds.pipelineModules.AspectBucketing import AspectBucketing
 from mgds.pipelineModules.CalcAspect import CalcAspect
 from mgds.pipelineModules.CapitalizeTags import CapitalizeTags
 from mgds.pipelineModules.CollectPaths import CollectPaths
@@ -165,7 +167,7 @@ class DataLoaderText2ImageMixin(metaclass=ABCMeta):
     def _aspect_bucketing_in(self, config: TrainConfig, aspect_bucketing_quantization: int, frame_dim_enabled:bool=False):
         calc_aspect = CalcAspect(image_in_name='image', resolution_out_name='original_resolution')
 
-        aspect_bucketing_quantization = AspectBucketing(
+        aspect_bucketing = TolerantAspectBucketing(
             quantization=aspect_bucketing_quantization,
             resolution_in_name='original_resolution',
             target_resolution_in_name='settings.target_resolution',
@@ -191,7 +193,18 @@ class DataLoaderText2ImageMixin(metaclass=ABCMeta):
         modules = [calc_aspect]
 
         if config.aspect_ratio_bucketing:
-            modules.append(aspect_bucketing_quantization)
+            modules.append(aspect_bucketing)
+        elif config.scale_to_mpx_equivalent:
+            modules.append(MpxAspectCalculation(
+                quantization=aspect_bucketing_quantization,
+                resolution_in_name='original_resolution',
+                target_resolution_in_name='settings.target_resolution',
+                enable_target_resolutions_override_in_name='concept.image.enable_resolution_override',
+                target_resolutions_override_in_name='concept.image.resolution_override',
+                scale_resolution_out_name='scale_resolution',
+                crop_resolution_out_name='crop_resolution',
+                possible_resolutions_out_name='possible_resolutions',
+            ))
         else:
             modules.append(single_aspect_calculation)
 
@@ -322,6 +335,16 @@ class DataLoaderText2ImageMixin(metaclass=ABCMeta):
         modules = []
 
         if config.model_type.has_mask_input():
+            if config.aspect_ratio_bucketing or config.scale_to_mpx_equivalent:
+                modules.append(ResolutionMetadata(
+                    resolution_in_name='crop_resolution',
+                    possible_resolutions_out_name='possible_resolutions',
+                ))
+                mask_remove = ResolutionAwareMaskRemove(
+                    mask_remove,
+                    after_cache_fun=(lambda: model_setup.setup_train_device(model, config))
+                    if not config.latent_caching and use_conditioning_image else None,
+                )
             modules.append(mask_remove)
 
         modules.append(batch_sorting)

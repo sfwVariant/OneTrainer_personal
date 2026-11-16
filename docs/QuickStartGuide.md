@@ -108,6 +108,19 @@ reduces the quality, while providing a significant speed boost.
 Your training images will be resized to that resolution when training. You don't need to do any manual resizing. You can
 specify multiple resolutions as a comma-separated list. All resolutions will be trained at the same time.
 
+In the Data tab, "Scale to MPX equivalent" preserves each image's approximate aspect ratio while targeting the pixel
+count of the selected resolution (for example, 1024 targets about one megapixel). Dimensions are rounded to the multiples
+required by the model, with a small crop if necessary. This option is on by default and is always enabled when "Aspect
+Ratio Bucketing" is on. Turn bucketing off to retain arbitrary aspect ratios without selecting predefined buckets; turn
+both options off to use square crops. An explicit width x height resolution still specifies a fixed crop.
+
+With either option enabled, images whose pixel count is within 10% of the selected target pixel count are not resized.
+They can still be cropped to satisfy the model's dimension multiples and the selected bucket or explicit crop aspect
+ratio. If a dimension is smaller than the model's minimum multiple, resizing is still necessary to meet that restriction.
+
+Images in a training batch must still have identical dimensions. With arbitrary aspect ratios, a batch size of 1 avoids
+dropping images that do not share their dimensions with enough other images to fill a batch.
+
 ### Masked training
 
 With masked training, you can instruct the model to only learn from some parts of your training images. For example, if

@@ -2,6 +2,8 @@ import os
 import re
 
 from modules.dataLoader.BaseDataLoader import BaseDataLoader
+from modules.dataLoader.MpxAspectCalculation import MpxAspectCalculation
+from modules.dataLoader.TolerantAspectBucketing import TolerantAspectBucketing
 from modules.model.StableDiffusionModel import StableDiffusionModel
 from modules.modelSetup.BaseModelSetup import BaseModelSetup
 from modules.util import factory, path_util
@@ -12,7 +14,6 @@ from modules.util.TrainProgress import TrainProgress
 
 from mgds.OutputPipelineModule import OutputPipelineModule
 from mgds.pipelineModules.AspectBatchSorting import AspectBatchSorting
-from mgds.pipelineModules.AspectBucketing import AspectBucketing
 from mgds.pipelineModules.CalcAspect import CalcAspect
 from mgds.pipelineModules.CollectPaths import CollectPaths
 from mgds.pipelineModules.DecodeVAE import DecodeVAE
@@ -106,7 +107,7 @@ class StableDiffusionFineTuneVaeDataLoader(BaseDataLoader):
     def __aspect_bucketing_in(self, config: TrainConfig):
         calc_aspect = CalcAspect(image_in_name='image', resolution_out_name='original_resolution')
 
-        aspect_bucketing = AspectBucketing(
+        aspect_bucketing = TolerantAspectBucketing(
             quantization=8,
             resolution_in_name='original_resolution',
             target_resolution_in_name='settings.target_resolution',
@@ -133,6 +134,17 @@ class StableDiffusionFineTuneVaeDataLoader(BaseDataLoader):
 
         if config.aspect_ratio_bucketing:
             modules.append(aspect_bucketing)
+        elif config.scale_to_mpx_equivalent:
+            modules.append(MpxAspectCalculation(
+                quantization=8,
+                resolution_in_name='original_resolution',
+                target_resolution_in_name='settings.target_resolution',
+                enable_target_resolutions_override_in_name='concept.image.enable_resolution_override',
+                target_resolutions_override_in_name='concept.image.resolution_override',
+                scale_resolution_out_name='scale_resolution',
+                crop_resolution_out_name='crop_resolution',
+                possible_resolutions_out_name='possible_resolutions',
+            ))
         else:
             modules.append(single_aspect_calculation)
 
