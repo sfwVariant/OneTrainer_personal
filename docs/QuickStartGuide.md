@@ -118,6 +118,11 @@ With either option enabled, images whose pixel count is within 10% of the select
 They can still be cropped to satisfy the model's dimension multiples and the selected bucket or explicit crop aspect
 ratio. If a dimension is smaller than the model's minimum multiple, resizing is still necessary to meet that restriction.
 
+Before resizing, a separate console summary counts unique source images outside the 10% tolerance for each applicable
+target resolution, including concept overrides. Each selected target is checked separately, regardless of random target
+selection. Repeats, image variations, and later epochs do not add to these counts. The check uses dimensions after any
+earlier mask augmentation. Resizing required solely by minimum dimension restrictions is excluded from this count.
+
 Images in a training batch must still have identical dimensions. With arbitrary aspect ratios, a batch size of 1 avoids
 dropping images that do not share their dimensions with enough other images to fill a batch.
 

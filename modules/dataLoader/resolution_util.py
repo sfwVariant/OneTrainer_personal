@@ -1,3 +1,8 @@
+def is_within_resolution_tolerance(resolution, target_pixels) -> bool:
+    height, width = resolution[-2:]
+    return 9 * target_pixels <= 10 * height * width <= 11 * target_pixels
+
+
 def get_target_resolution(module, variation: int, index: int) -> int | tuple[int, int]:
     targets = module._get_previous_item(variation, module.target_resolutions_in_name, index)
     if module.enable_target_resolutions_override_in_name is not None and module._get_previous_item(
@@ -13,7 +18,7 @@ def get_target_resolution(module, variation: int, index: int) -> int | tuple[int
 
 def apply_resolution_tolerance(module, resolution, target_pixels, result, preserve_crop_aspect=False):
     height, width = resolution[-2:]
-    if not 9 * target_pixels <= 10 * height * width <= 11 * target_pixels:
+    if not is_within_resolution_tolerance(resolution, target_pixels):
         return result
     quantization = module.quantization
     if min(height, width) < quantization:

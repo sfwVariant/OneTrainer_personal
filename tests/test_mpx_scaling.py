@@ -39,7 +39,7 @@ class ImageSource(PipelineModule, RandomAccessPipelineModule):
         return []
 
     def get_outputs(self):
-        return ['image', 'mask', 'custom_conditioning_image', 'settings', 'concept']
+        return ['image_path', 'image', 'mask', 'custom_conditioning_image', 'settings', 'concept']
 
     def get_item(self, variation, index, requested_name=None):
         height, width = self.resolutions[index][-2:]
@@ -47,6 +47,7 @@ class ImageSource(PipelineModule, RandomAccessPipelineModule):
         if len(self.resolutions[index]) == 3:
             image = image.unsqueeze(1).repeat(1, self.resolutions[index][0], 1, 1)
         return {
+            'image_path': f'/images/{index}.png',
             'image': image,
             'mask': image[:1].clone(),
             'custom_conditioning_image': image.clone(),

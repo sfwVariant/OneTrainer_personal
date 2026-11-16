@@ -2,6 +2,7 @@ import os
 import re
 
 from modules.dataLoader.BaseDataLoader import BaseDataLoader
+from modules.dataLoader.ImageScalingCounts import ImageScalingCounts
 from modules.dataLoader.MpxAspectCalculation import MpxAspectCalculation
 from modules.dataLoader.TolerantAspectBucketing import TolerantAspectBucketing
 from modules.model.StableDiffusionModel import StableDiffusionModel
@@ -147,6 +148,9 @@ class StableDiffusionFineTuneVaeDataLoader(BaseDataLoader):
             ))
         else:
             modules.append(single_aspect_calculation)
+
+        if config.aspect_ratio_bucketing or config.scale_to_mpx_equivalent:
+            modules.append(ImageScalingCounts())
 
         return modules
 

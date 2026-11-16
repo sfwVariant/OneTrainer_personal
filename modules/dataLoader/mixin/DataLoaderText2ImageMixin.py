@@ -4,6 +4,7 @@ from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
 
 import modules.util.multi_gpu_util as multi
+from modules.dataLoader.ImageScalingCounts import ImageScalingCounts
 from modules.dataLoader.MpxAspectCalculation import MpxAspectCalculation
 from modules.dataLoader.ResolutionMetadata import ResolutionAwareMaskRemove, ResolutionMetadata
 from modules.dataLoader.TolerantAspectBucketing import TolerantAspectBucketing
@@ -207,6 +208,9 @@ class DataLoaderText2ImageMixin(metaclass=ABCMeta):
             ))
         else:
             modules.append(single_aspect_calculation)
+
+        if config.aspect_ratio_bucketing or config.scale_to_mpx_equivalent:
+            modules.append(ImageScalingCounts())
 
         return modules
 
