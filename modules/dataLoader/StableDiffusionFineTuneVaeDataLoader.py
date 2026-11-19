@@ -5,6 +5,7 @@ from modules.dataLoader.BaseDataLoader import BaseDataLoader
 from modules.dataLoader.ImageScalingCounts import ImageScalingCounts
 from modules.dataLoader.MpxAspectCalculation import MpxAspectCalculation
 from modules.dataLoader.TolerantAspectBucketing import TolerantAspectBucketing
+from modules.dataLoader.VramAwareDiskCache import VramAwareDiskCache
 from modules.model.StableDiffusionModel import StableDiffusionModel
 from modules.modelSetup.BaseModelSetup import BaseModelSetup
 from modules.util import factory, path_util
@@ -18,7 +19,6 @@ from mgds.pipelineModules.AspectBatchSorting import AspectBatchSorting
 from mgds.pipelineModules.CalcAspect import CalcAspect
 from mgds.pipelineModules.CollectPaths import CollectPaths
 from mgds.pipelineModules.DecodeVAE import DecodeVAE
-from mgds.pipelineModules.DiskCache import DiskCache
 from mgds.pipelineModules.EncodeVAE import EncodeVAE
 from mgds.pipelineModules.InlineAspectBatchSorting import InlineAspectBatchSorting
 from mgds.pipelineModules.LoadImage import LoadImage
@@ -210,8 +210,13 @@ class StableDiffusionFineTuneVaeDataLoader(BaseDataLoader):
         def before_cache_fun():
             self._setup_cache_device(model, self.train_device, self.temp_device, config)
 
-        disk_cache = DiskCache(cache_dir=config.cache_dir, split_names=split_names, aggregate_names=aggregate_names, variations_in_name='concept.image_variations', balancing_in_name='concept.balancing', balancing_strategy_in_name='concept.balancing_strategy',
-                               variations_group_in_name=['concept.path', 'concept.seed', 'concept.include_subdirectories', 'concept.image'], group_enabled_in_name='concept.enabled', before_cache_fun=before_cache_fun)
+        disk_cache = VramAwareDiskCache(
+            cache_dir=config.cache_dir, split_names=split_names, aggregate_names=aggregate_names,
+            variations_in_name='concept.image_variations', balancing_in_name='concept.balancing',
+            balancing_strategy_in_name='concept.balancing_strategy',
+            variations_group_in_name=['concept.path', 'concept.seed', 'concept.include_subdirectories', 'concept.image'],
+            group_enabled_in_name='concept.enabled', before_cache_fun=before_cache_fun,
+        )
         variation_sorting = VariationSorting(names=sort_names, balancing_in_name='concept.balancing', balancing_strategy_in_name='concept.balancing_strategy', variations_group_in_name=['concept.path', 'concept.seed', 'concept.include_subdirectories', 'concept.text'],
                                group_enabled_in_name='concept.enabled')
 
