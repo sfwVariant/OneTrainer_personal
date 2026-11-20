@@ -584,7 +584,7 @@ class GenericTrainer(BaseTrainer):
         save_path = os.path.join(
             self.config.workspace_dir,
             "save",
-            f"{self.config.save_filename_prefix}{get_string_timestamp()}-save-{train_progress.filename_string()}{self.config.output_model_format.file_extension()}"
+            f"{self.config.save_filename_prefix}{get_string_timestamp()}-save-{train_progress.filename_string(epoch_width=3)}{self.config.output_model_format.file_extension()}"
         )
         if print_msg:
             tqdm.write("Saving " + save_path)

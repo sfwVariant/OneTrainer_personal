@@ -21,5 +21,5 @@ class TrainProgress:
         self.epoch_sample = 0
         self.epoch += 1
 
-    def filename_string(self):
-        return f"{self.global_step}-{self.epoch}-{self.epoch_step}"
+    def filename_string(self, *, epoch_width: int = 0):
+        return f"{self.global_step}-{self.epoch:0{epoch_width}d}-{self.epoch_step}"
