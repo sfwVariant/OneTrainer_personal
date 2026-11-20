@@ -8,6 +8,7 @@ from modules.dataLoader.ImageScalingCounts import ImageScalingCounts
 from modules.dataLoader.MpxAspectCalculation import MpxAspectCalculation
 from modules.dataLoader.ResolutionMetadata import ResolutionAwareMaskRemove, ResolutionMetadata
 from modules.dataLoader.TolerantAspectBucketing import TolerantAspectBucketing
+from modules.dataLoader.VramAwareDiskCache import VramAwareDiskCache
 from modules.model.BaseModel import BaseModel
 from modules.modelSetup.BaseModelSetup import BaseModelSetup
 from modules.modelSetup.mixin.ModelSetupText2ImageMixin import ModelSetupText2ImageMixin
@@ -21,7 +22,6 @@ from mgds.pipelineModules.AspectBatchSorting import AspectBatchSorting
 from mgds.pipelineModules.CalcAspect import CalcAspect
 from mgds.pipelineModules.CapitalizeTags import CapitalizeTags
 from mgds.pipelineModules.CollectPaths import CollectPaths
-from mgds.pipelineModules.DiskCache import DiskCache
 from mgds.pipelineModules.DistributedSampler import DistributedSampler
 from mgds.pipelineModules.DownloadHuggingfaceDatasets import DownloadHuggingfaceDatasets
 from mgds.pipelineModules.DropTags import DropTags
@@ -383,12 +383,21 @@ class DataLoaderText2ImageMixin(metaclass=ABCMeta):
         def before_cache_text_fun():
             model_setup.prepare_text_caching(model, config)
 
-        image_disk_cache = DiskCache(cache_dir=image_cache_dir, split_names=image_split_names, aggregate_names=image_aggregate_names, variations_in_name='concept.image_variations',
-                                     balancing_in_name='concept.balancing', balancing_strategy_in_name='concept.balancing_strategy', variations_group_in_name=['concept.path', 'concept.seed', 'concept.include_subdirectories', 'concept.image'],
-                                     group_enabled_in_name='concept.enabled', before_cache_fun=before_cache_image_fun)
+        image_disk_cache = VramAwareDiskCache(
+            cache_dir=image_cache_dir, split_names=image_split_names, aggregate_names=image_aggregate_names,
+            variations_in_name='concept.image_variations', balancing_in_name='concept.balancing',
+            balancing_strategy_in_name='concept.balancing_strategy',
+            variations_group_in_name=['concept.path', 'concept.seed', 'concept.include_subdirectories', 'concept.image'],
+            group_enabled_in_name='concept.enabled', before_cache_fun=before_cache_image_fun,
+        )
 
-        text_disk_cache = DiskCache(cache_dir=text_cache_dir, split_names=text_split_names, aggregate_names=[], variations_in_name='concept.text_variations', balancing_in_name='concept.balancing', balancing_strategy_in_name='concept.balancing_strategy',
-                                    variations_group_in_name=['concept.path', 'concept.seed', 'concept.include_subdirectories', 'concept.text'], group_enabled_in_name='concept.enabled', before_cache_fun=before_cache_text_fun)
+        text_disk_cache = VramAwareDiskCache(
+            cache_dir=text_cache_dir, split_names=text_split_names, aggregate_names=[],
+            variations_in_name='concept.text_variations', balancing_in_name='concept.balancing',
+            balancing_strategy_in_name='concept.balancing_strategy',
+            variations_group_in_name=['concept.path', 'concept.seed', 'concept.include_subdirectories', 'concept.text'],
+            group_enabled_in_name='concept.enabled', before_cache_fun=before_cache_text_fun,
+        )
 
         modules = []
 
