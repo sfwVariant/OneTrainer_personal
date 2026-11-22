@@ -6,9 +6,12 @@
   - Automatically disabled if: `Cache Only` is enabled, or `Latent Caching` is disabled, or training a text encoder lora
   - Unloads after first cache, i.e. everything prior to epoch 1
       - And unloads when `Clear cache before training` is disabled
-  - Does NOT intelligently check other settings like Concept text variations
-     - PROBLEM: OneTrainer makes extra variations on the fly, so it'll reload the text encoder every time it needs to make new variations
-     - SOLUTION: if you're doing multiple variations, do a `Cache Only` run first to pre-cache all variations and then turn off `Clear cache before training` for the real run
+  - Sometimes brings it back into memory if certain settings are on
+    - It's specially handled to not do this when saving, backing up & running validation, but it may do it in other situations
+- Improved VRAM usage during caching
+  - Used to just obliterate your VRAM by only clearing it every 250 cached items, which is a fucking lot
+  - Now generally monitors VRAM and clears it when approaching capacity
+  - VRAM during cache step reduced by up to ~60% or so, depending
 
 
 Specs below (there are two).
