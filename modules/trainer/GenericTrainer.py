@@ -15,6 +15,7 @@ from modules.modelSampler.BaseModelSampler import BaseModelSampler, ModelSampler
 from modules.modelSaver.BaseModelSaver import BaseModelSaver
 from modules.modelSetup.BaseModelSetup import BaseModelSetup
 from modules.trainer.BaseTrainer import BaseTrainer
+from modules.trainer.GradientNormMonitor import GradientNormMonitor
 from modules.util import create, huggingface_util, path_util
 from modules.util.bf16_stochastic_rounding import set_seed as bf16_stochastic_rounding_set_seed
 from modules.util.callbacks.TrainCallbacks import TrainCallbacks
@@ -656,7 +657,26 @@ class GenericTrainer(BaseTrainer):
             "update_step", self.config.gradient_accumulation_steps, TimeUnit.STEP, train_progress, start_at_zero=False
         )
 
-    def __apply_fused_back_pass(self, scaler):
+    def __clip_gradients(
+        self,
+        parameters: Tensor | list[Parameter],
+        gradient_norm_monitor: GradientNormMonitor | None,
+    ):
+        pre_clip_norm = None
+        if self.config.clip_grad_norm is not None:
+            pre_clip_norm = nn.utils.clip_grad_norm_(parameters, self.config.clip_grad_norm)
+
+        if gradient_norm_monitor is not None:
+            if isinstance(parameters, Tensor):
+                parameters = [parameters]
+            grads = [parameter.grad for parameter in parameters if parameter.grad is not None]
+            if grads:
+                post_clip_norm = nn.utils.get_total_norm(grads)
+                if pre_clip_norm is None:
+                    pre_clip_norm = post_clip_norm
+                gradient_norm_monitor.record(pre_clip_norm, post_clip_norm)
+
+    def __apply_fused_back_pass(self, scaler, gradient_norm_monitor: GradientNormMonitor | None):
         fused_optimizer_step = self.config.optimizer.optimizer.supports_fused_back_pass() and self.config.optimizer.fused_back_pass
         fused_reduce = self.config.multi_gpu and self.config.fused_gradient_reduce
         if fused_optimizer_step:
@@ -675,14 +695,12 @@ class GenericTrainer(BaseTrainer):
                     if scaler:
                         def __optimizer_step(tensor: Tensor, param_group=param_group, i=i):
                             scaler.unscale_parameter_(tensor, self.model.optimizer)
-                            if self.config.clip_grad_norm is not None:
-                                nn.utils.clip_grad_norm_(tensor, self.config.clip_grad_norm)
+                            self.__clip_gradients(tensor, gradient_norm_monitor)
                             scaler.maybe_opt_step_parameter(tensor, param_group, i, self.model.optimizer)
                             tensor.grad = None
                     else:
                         def __optimizer_step(tensor: Tensor, param_group=param_group, i=i):
-                            if self.config.clip_grad_norm is not None:
-                                nn.utils.clip_grad_norm_(tensor, self.config.clip_grad_norm)
+                            self.__clip_gradients(tensor, gradient_norm_monitor)
                             self.model.optimizer.step_parameter(tensor, param_group, i)
                             tensor.grad = None
 
@@ -730,8 +748,9 @@ class GenericTrainer(BaseTrainer):
             return
 
         scaler = create_grad_scaler() if enable_grad_scaling(self.config.train_dtype, self.parameters) else None
+        gradient_norm_monitor = GradientNormMonitor(self.tensorboard) if multi.is_master() else None
 
-        self.__apply_fused_back_pass(scaler)
+        self.__apply_fused_back_pass(scaler, gradient_norm_monitor)
 
         # False if the model gradients are all None, True otherwise
         # This is used to schedule sampling only when the gradients don't take up any space
@@ -887,18 +906,19 @@ class GenericTrainer(BaseTrainer):
                             scaler.update()
                         elif scaler:
                             scaler.unscale_(self.model.optimizer)
-                            if self.config.clip_grad_norm is not None:
-                                nn.utils.clip_grad_norm_(self.parameters, self.config.clip_grad_norm)
+                            self.__clip_gradients(self.parameters, gradient_norm_monitor)
                             scaler.step(self.model.optimizer)
                             scaler.update()
                         else:
-                            if self.config.clip_grad_norm is not None:
-                                nn.utils.clip_grad_norm_(self.parameters, self.config.clip_grad_norm)
+                            self.__clip_gradients(self.parameters, gradient_norm_monitor)
                             self.model.optimizer.step()
 
                         lr_scheduler.step()  # done before zero_grad, because some lr schedulers need gradients
                         self.model.optimizer.zero_grad(set_to_none=True)
                         has_gradient = False
+
+                        if gradient_norm_monitor is not None:
+                            gradient_norm_monitor.report(train_progress.global_step)
 
                         if multi.is_master():
                             self.model_setup.report_to_tensorboard(
